@@ -344,6 +344,12 @@ emit_store_imm32(struct jit_state* state, enum operand_size size, int dst, int32
 }
 
 static inline void
+emit_ret(struct jit_state* state)
+{
+    emit1(state, 0xc3);
+}
+
+static inline void
 emit_call(struct jit_state* state, void* target)
 {
 #if defined(_WIN32)
@@ -359,6 +365,13 @@ emit_call(struct jit_state* state, void* target)
     emit_load_imm(state, RAX, (uintptr_t)target);
     /* callq *%rax */
     emit1(state, 0xff);
+    // ModR/M byte: b11010000b = xd
+    //               ^
+    //               register-direct addressing.
+    //                 ^
+    //                 opcode extension (2)
+    //                    ^
+    //                    rax is register 0
     emit1(state, 0xd0);
 
 #if defined(_WIN32)
