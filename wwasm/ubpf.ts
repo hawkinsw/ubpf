@@ -1,20 +1,34 @@
 /**
  * Load the WASM runtime.
  *
- * @returns {Promise<WebAssembly.WebAssemblyInstantiatedSource>} A promise to the
- * result of instantiating the wasm runtime.
+ * @returns {Promise<[WebAssembly.Instance, WebAssembly.Memory], Error>} A promise to either the
+ * error that occurred when loading the runtime or the pair of the instance of the wasm runtime
+ * and its memory.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function load_runtime(importObject: any) {
-    return WebAssembly.instantiateStreaming(
-        fetch("build/ubpf.wasm"),
-        importObject,
+export async function load_runtime(
+    importObject: WebAssembly.Imports,
+): Promise<[WebAssembly.Instance, WebAssembly.Memory] | Error > {
+    const wasmSourceFile = await Deno.open("./build/ubpf.wasm");
+    const wasmSource = await Deno.readAll(wasmSourceFile);
+    return WebAssembly.instantiate(wasmSource, importObject).then(
+        (result) => {
+            return [result.instance, result.instance.exports.memory as WebAssembly.Memory]
+        },
+        (reason) => {
+
+            return new Error(reason);
+        },
     );
 }
 
-class Vm {
-    opaque: any;
+export class Vm {
+    opaque: Pointer = NullPointer;
 }
+
+export type Pointer = number;
+
+export const NullPointer: Pointer = 0;
 
 /**
  * Load a BPF program into UBPF.
@@ -22,8 +36,9 @@ class Vm {
  * @param wasm {WebAssembly.Instance} The instance of the wasm runtime
  * @returns {Vm} A VM instance that can be used for future ubpf calls.
  */
-function create_runtime(wasm: WebAssembly.Instance): Vm {
-    const ubpf_create = wasm.exports.ubpf_create as () => any;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function create_runtime(wasm: WebAssembly.Instance): Vm {
+    const ubpf_create = wasm.exports.ubpf_create as () => Pointer;
     const vm = ubpf_create();
     const runtime = new Vm();
     runtime.opaque = vm;
@@ -37,7 +52,7 @@ function create_runtime(wasm: WebAssembly.Instance): Vm {
  * @param {number} program Pointer to wasm memory of ebpf program to load
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function load_ubpf(
+export function load_ubpf(
     wasm: WebAssembly.Instance,
     vm: Vm,
     program: Uint8Array,
@@ -53,7 +68,8 @@ function load_ubpf(
     return [true, "no error"];
 }
 
-function exec_ubpf(
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function exec_ubpf(
     wasm: WebAssembly.Instance,
     vm: Vm,
     runtime_memory: ArrayBuffer,
@@ -82,7 +98,7 @@ function exec_ubpf(
     return Number(exec_result.getBigUint64(0, true));
 }
 
-function malloc(wasm: WebAssembly.Instance, size: number): number {
+export function malloc(wasm: WebAssembly.Instance, size: number): number {
     const malloc_fn = wasm.exports.malloc as (a: number) => number;
     return malloc_fn(size);
 }
