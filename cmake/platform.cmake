@@ -14,4 +14,8 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(PLATFORM_LINUX true)
+
+elseif(DEFINED EMSCRIPTEN)
+  set(PLATFORM_WASM true)
+
 endif()

@@ -31,6 +31,10 @@
 #include "ubpf_int.h"
 #include <unistd.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+
 #define MAX_EXT_FUNCS 64
 #define SHIFT_MASK_32_BIT(X) ((X)&0x1f)
 #define SHIFT_MASK_64_BIT(X) ((X)&0x3f)
@@ -65,6 +69,10 @@ ubpf_set_error_print(struct ubpf_vm* vm, int (*error_printf)(FILE* stream, const
         vm->error_printf = fprintf;
 }
 
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
 struct ubpf_vm*
 ubpf_create(void)
 {
@@ -146,6 +154,9 @@ ubpf_lookup_registered_function(struct ubpf_vm* vm, const char* name)
     return -1;
 }
 
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
 int
 ubpf_load(struct ubpf_vm* vm, const void* code, uint32_t code_len, char** errmsg)
 {
@@ -282,6 +293,9 @@ ubpf_mem_store(uint64_t address, uint64_t value, size_t size)
     }
 }
 
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
 int
 ubpf_exec(const struct ubpf_vm* vm, void* mem, size_t mem_len, uint64_t* bpf_return_value)
 {

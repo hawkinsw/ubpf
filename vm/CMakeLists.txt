@@ -34,6 +34,21 @@ set(public_header_list
   "${CMAKE_CURRENT_BINARY_DIR}/ubpf_config.h"
 )
 
+if(PLATFORM_WASM)
+add_executable("ubpf"
+  ${public_header_list}
+
+  ebpf.h
+  ubpf_int.h
+  ubpf_jit_arm64.c
+  ubpf_jit.c
+  ubpf_jit_x86_64.c
+  ubpf_jit_x86_64.h
+  ubpf_loader.c
+  ubpf_vm.c
+)
+target_link_options("ubpf" PRIVATE "SHELL:-s STANDALONE_WASM=1" "SHELL:-s EXPORTED_FUNCTIONS=['_malloc']" -Wl,--no-entry)
+else()
 add_library("ubpf"
   ${public_header_list}
 
@@ -46,6 +61,7 @@ add_library("ubpf"
   ubpf_loader.c
   ubpf_vm.c
 )
+endif()
 
 target_link_libraries("ubpf"
   PRIVATE

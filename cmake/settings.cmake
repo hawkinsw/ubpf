@@ -79,6 +79,8 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
       $<$<CONFIG:RelWithDebInfo>:NDEBUG>
     )
 
+  elseif(PLATFORM_WASM)
+    message(WARNING "WASM support is currently experimental.")
   else()
     message(WARNING "ubpf - Unsupported platform")
   endif()
