@@ -47,7 +47,7 @@ add_executable("ubpf"
   ubpf_loader.c
   ubpf_vm.c
 )
-target_link_options("ubpf" PRIVATE "SHELL:-s STANDALONE_WASM=1" "SHELL:-s EXPORTED_FUNCTIONS=['_malloc']" -Wl,--no-entry)
+target_link_options("ubpf" PRIVATE "SHELL:-s STANDALONE_WASM=1"  "SHELL:-s EXPORTED_RUNTIME_METHODS='[addFunction, ccall]'" "SHELL:-s EXPORTED_FUNCTIONS='[_malloc, addFunction, ccall]'" "SHELL:-s RESERVED_FUNCTION_POINTERS=1" -Wl,--no-entry)
 else()
 add_library("ubpf"
   ${public_header_list}

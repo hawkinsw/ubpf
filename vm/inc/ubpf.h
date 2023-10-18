@@ -98,6 +98,10 @@ extern "C"
     void
     ubpf_set_error_print(struct ubpf_vm* vm, int (*error_printf)(FILE* stream, const char* format, ...));
 
+#ifdef __EMSCRIPTEN__
+    int
+    ubpf_register(struct ubpf_vm* vm, unsigned int index);
+#else
     /**
      * @brief Register an external function.
      * The immediate field of a CALL instruction is an index into an array of
@@ -113,6 +117,7 @@ extern "C"
      */
     int
     ubpf_register(struct ubpf_vm* vm, unsigned int index, const char* name, void* fn);
+#endif
 
     /**
      * @brief Load code into a VM.

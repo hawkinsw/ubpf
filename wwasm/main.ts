@@ -4,32 +4,36 @@ import {
     load_runtime,
     load_ubpf,
     malloc,
+    generate_ubpf_dispatch_system
 } from "./ubpf.ts";
 
+import Context from "https://deno.land/std/wasi/snapshot_preview1.ts";
+
+function testing_function() {
+    console.log("I am in testing!")
+}
+
 async function main() {
+    const context = new Context({
+        args: Deno.args,
+        env: Deno.env.toObject()
+    });
+
+    const [ubpf_register, ubpf_dispatcher] = generate_ubpf_dispatch_system();
+
     const importObject = {
-        wasi_snapshot_preview1: {
-            proc_exit: () => {
-                console.log("proc_exit.\n");
-            },
-            fd_close: () => {
-                console.log("fd_close.\n");
-            },
-            fd_seek: () => {
-                console.log("fd_seek.\n");
-            },
-            fd_write: () => {
-                console.log("fd_write.\n");
-            },
-        },
+        wasi_snapshot_preview1: context.exports,
+        env: {
+            ubpf_dispatcher: ubpf_dispatcher,
+        }
     };
 
     const result = await load_runtime(importObject);
     if (result instanceof Error) {
-        console.error(`There was an error loading the ubpf runtime: ${result}`)
+        console.error(`There was an error loading the ubpf runtime: ${result}`);
         return;
     }
-    const [runtime, memory] = result
+    const [runtime, memory] = result;
     const memory_buffer = memory.buffer;
 
     const program_bytes_loc = malloc(runtime, 40);
@@ -84,6 +88,9 @@ async function main() {
     program_bytes[39] = 0x00;
 
     const vm = create_runtime(runtime);
+
+    ubpf_register(runtime, vm, 7, testing_function);
+
     const load_result = load_ubpf(runtime, vm, program_bytes);
     console.log(`load_result: ${load_result}`);
     const exec_actual_result = exec_ubpf(

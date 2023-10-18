@@ -117,6 +117,18 @@ ubpf_destroy(struct ubpf_vm* vm)
     free(vm);
 }
 
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+EM_JS(void, ubpf_dispatcher, (int), {
+    // intentionally blank.
+});
+
+EMSCRIPTEN_KEEPALIVE
+int
+ubpf_register(struct ubpf_vm* vm, unsigned int idx) {
+    return 0;
+}
+#else
 int
 ubpf_register(struct ubpf_vm* vm, unsigned int idx, const char* name, void* fn)
 {
@@ -129,6 +141,7 @@ ubpf_register(struct ubpf_vm* vm, unsigned int idx, const char* name, void* fn)
 
     return 0;
 }
+#endif
 
 int
 ubpf_set_unwind_function_index(struct ubpf_vm* vm, unsigned int idx)
@@ -342,6 +355,10 @@ ubpf_exec(const struct ubpf_vm* vm, void* mem, size_t mem_len, uint64_t* bpf_ret
         reg = _reg;
 #else
     reg = _reg;
+#endif
+
+#ifdef __EMSCRIPTEN__
+    ubpf_dispatcher(7);
 #endif
 
     reg[1] = (uintptr_t)mem;
