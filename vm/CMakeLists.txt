@@ -34,21 +34,6 @@ set(public_header_list
   "${CMAKE_CURRENT_BINARY_DIR}/ubpf_config.h"
 )
 
-if(PLATFORM_WASM)
-add_executable("ubpf"
-  ${public_header_list}
-
-  ebpf.h
-  ubpf_int.h
-  ubpf_jit_arm64.c
-  ubpf_jit.c
-  ubpf_jit_x86_64.c
-  ubpf_jit_x86_64.h
-  ubpf_loader.c
-  ubpf_vm.c
-)
-target_link_options("ubpf" PRIVATE "SHELL:-s STANDALONE_WASM=1"  "SHELL:-s EXPORTED_RUNTIME_METHODS='[addFunction, ccall]'" "SHELL:-s EXPORTED_FUNCTIONS='[_malloc, addFunction, ccall]'" "SHELL:-s RESERVED_FUNCTION_POINTERS=1" -Wl,--no-entry)
-else()
 add_library("ubpf"
   ${public_header_list}
 
@@ -61,7 +46,6 @@ add_library("ubpf"
   ubpf_loader.c
   ubpf_vm.c
 )
-endif()
 
 target_link_libraries("ubpf"
   PRIVATE
@@ -91,7 +75,7 @@ if(PLATFORM_LINUX)
   endif()
 endif()
 
-if(UBPF_ENABLE_TESTS)
+if(UBPF_ENABLE_TESTS AND (NOT PLATFORM_WASM))
   add_executable("ubpf_test"
     test.c
   )
@@ -110,7 +94,7 @@ if(TARGET "ubpf_compat")
     $<BUILD_INTERFACE:ubpf_compat>
   )
 
-  if(UBPF_ENABLE_TESTS)
+  if(UBPF_ENABLE_TESTS AND (NOT PLATFORM_WASM))
     target_link_libraries("ubpf_test" PRIVATE
       $<BUILD_INTERFACE:ubpf_compat>
     )

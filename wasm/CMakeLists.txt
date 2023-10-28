@@ -21,3 +21,7 @@ target_link_libraries(
     ubpf_settings
 )
 target_link_options("ubpf_lib" PRIVATE "SHELL:-s STANDALONE_WASM=1"  "SHELL:-s EXPORTED_FUNCTIONS='[_malloc]'" "SHELL:-s RESERVED_FUNCTION_POINTERS=1" -Wl,--no-entry)
+
+add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/bin/main.ts COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/wasm/main.ts ${CMAKE_BINARY_DIR}/bin/main.ts DEPENDS ${CMAKE_SOURCE_DIR}/wasm/main.ts)
+add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/bin/ubpf.ts COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/wasm/ubpf.ts ${CMAKE_BINARY_DIR}/bin/ubpf.ts DEPENDS ${CMAKE_SOURCE_DIR}/wasm/ubpf.ts)
+add_custom_target(wasm-wrappers ALL DEPENDS ${CMAKE_BINARY_DIR}/bin/main.ts ${CMAKE_BINARY_DIR}/bin/ubpf.ts)

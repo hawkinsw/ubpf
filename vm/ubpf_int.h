@@ -25,7 +25,11 @@
 #include "ebpf.h"
 
 struct ebpf_inst;
+#ifdef PLATFORM_WASM
+typedef uint64_t (*ext_func)(int tag, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4);
+#else
 typedef uint64_t (*ext_func)(uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4);
+#endif
 
 struct ubpf_vm
 {
@@ -49,6 +53,13 @@ struct ubpf_vm
     uint64_t* regs;
 #endif
 };
+
+#ifdef PLATFORM_WASM
+#define WASM_PUBLIC EMSCRIPTEN_KEEPALIVE
+#else
+// The spaces at the end of this line are intentional!
+#define WASM_PUBLIC  
+#endif
 
 struct ubpf_stack_frame
 {

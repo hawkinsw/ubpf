@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 file(COPY ${CMAKE_SOURCE_DIR}/tests DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
+if(NOT PLATFORM_WASM)
 add_executable(
     ubpf_plugin
     ubpf_plugin.cc
@@ -29,6 +30,7 @@ target_link_libraries(
     ubpf
     ubpf_settings
 )
+endif()
 
 file(GLOB external_files ${CMAKE_SOURCE_DIR}/external/bpf_conformance/tests/*.data)
 file(GLOB local_files ${CMAKE_SOURCE_DIR}/tests/*.data)
@@ -42,6 +44,9 @@ else()
 endif()
 
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL aarch64 AND (NOT CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL aarch64))
+    set(PLUGIN_JIT --plugin_path ${CMAKE_BINARY_DIR}/bin/run-jit.sh)
+    set(PLUGIN_INTERPRET --plugin_path ${CMAKE_BINARY_DIR}/bin/run-interpret.sh)
+elseif(PLATFORM_WASM)
     set(PLUGIN_JIT --plugin_path ${CMAKE_BINARY_DIR}/bin/run-jit.sh)
     set(PLUGIN_INTERPRET --plugin_path ${CMAKE_BINARY_DIR}/bin/run-interpret.sh)
 else()
@@ -75,6 +80,10 @@ foreach(file ${files})
         COMMAND ${BPF_CONFORMANCE_RUNNER} --test_file_path ${file} ${PLUGIN_JIT}
     )
 
+    if(PLATFORM_WASM)
+        set_tests_properties(${file}-JIT PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    endif()
+
     if(EXPECT_FAILURE)
         set_tests_properties(${file}-JIT PROPERTIES WILL_FAIL TRUE)
     endif()
@@ -83,6 +92,10 @@ foreach(file ${files})
         NAME ${file}-Interpreter
         COMMAND ${BPF_CONFORMANCE_RUNNER} --test_file_path ${file} ${PLUGIN_INTERPRET}
     )
+
+    if(PLATFORM_WASM)
+        set_tests_properties(${file}-Interpreter PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    endif()
 
     if(EXPECT_FAILURE)
         set_tests_properties(${file}-Interpreter PROPERTIES WILL_FAIL TRUE)

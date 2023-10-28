@@ -26,7 +26,9 @@ extern "C"
 #endif
 
 #include <ubpf_config.h>
-
+#ifdef PLATFORM_WASM
+#include "emscripten/emscripten.h"
+#endif
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -98,7 +100,20 @@ extern "C"
     void
     ubpf_set_error_print(struct ubpf_vm* vm, int (*error_printf)(FILE* stream, const char* format, ...));
 
-#ifdef __EMSCRIPTEN__
+#ifdef PLATFORM_WASM
+    /**
+     * @brief Register an external function.
+     * A UBPF program can call a platform-specific helper function defined by the
+     * user outside the runtime. The platform-specific helper functions are identified
+     * by their index and invoked with a CALL instruction. The CALL instruction's
+     * immediate part selects the function to run.
+     *
+     * @param[in] vm The VM to register the function on.
+     * @param[in] index The index to register the function at.
+     * @retval 0 Success.
+     * @retval -1 Failure.
+     */
+    EMSCRIPTEN_KEEPALIVE
     int
     ubpf_register(struct ubpf_vm* vm, unsigned int index);
 #else

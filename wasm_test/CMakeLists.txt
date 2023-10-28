@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-file(COPY run-interpret.sh DESTINATION ${CMAKE_BINARY_DIR}/bin)
-file(COPY run-jit.sh DESTINATION ${CMAKE_BINARY_DIR}/bin)
+add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/bin/run-interpret.sh COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/wasm_test/run-interpret.sh ${CMAKE_BINARY_DIR}/bin/run-interpret.sh DEPENDS ${CMAKE_SOURCE_DIR}/wasm_test/run-interpret.sh)
+add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/bin/run-jit.sh COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/wasm_test/run-jit.sh ${CMAKE_BINARY_DIR}/bin/run-jit.sh DEPENDS ${CMAKE_SOURCE_DIR}/wasm_test/run-jit.sh)
+add_custom_target(wasm-run-wrappers ALL DEPENDS ${CMAKE_BINARY_DIR}/bin/run-jit.sh ${CMAKE_BINARY_DIR}/bin/run-interpret.sh)

@@ -31,7 +31,7 @@
 #include "ubpf_int.h"
 #include <unistd.h>
 
-#ifdef __EMSCRIPTEN__
+#ifdef PLATFORM_WASM
 #include <emscripten/emscripten.h>
 #endif
 
@@ -70,9 +70,7 @@ ubpf_set_error_print(struct ubpf_vm* vm, int (*error_printf)(FILE* stream, const
 }
 
 
-#ifdef __EMSCRIPTEN__
-EMSCRIPTEN_KEEPALIVE
-#endif
+WASM_PUBLIC
 struct ubpf_vm*
 ubpf_create(void)
 {
@@ -117,15 +115,19 @@ ubpf_destroy(struct ubpf_vm* vm)
     free(vm);
 }
 
-#ifdef __EMSCRIPTEN__
-EMSCRIPTEN_KEEPALIVE
-EM_JS(void, ubpf_dispatcher, (int), {
-    // intentionally blank.
+#ifdef PLATFORM_WASM
+WASM_PUBLIC
+EM_JS(uint64_t, ubpf_dispatcher, (int, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t), {
+    // Intentionally blank -- body given in JavaScript.
 });
 
-EMSCRIPTEN_KEEPALIVE
+WASM_PUBLIC
 int
-ubpf_register(struct ubpf_vm* vm, unsigned int idx) {
+ubpf_register(struct ubpf_vm* vm, unsigned int idx)
+{
+    // All dispatching to JavaScript-based platform-specific
+    // helper functions is done through the ubpf_dispatcher.
+    vm->ext_funcs[idx] = (ext_func)ubpf_dispatcher;
     return 0;
 }
 #else
@@ -143,6 +145,7 @@ ubpf_register(struct ubpf_vm* vm, unsigned int idx, const char* name, void* fn)
 }
 #endif
 
+WASM_PUBLIC
 int
 ubpf_set_unwind_function_index(struct ubpf_vm* vm, unsigned int idx)
 {
@@ -167,9 +170,7 @@ ubpf_lookup_registered_function(struct ubpf_vm* vm, const char* name)
     return -1;
 }
 
-#ifdef __EMSCRIPTEN__
-EMSCRIPTEN_KEEPALIVE
-#endif
+WASM_PUBLIC
 int
 ubpf_load(struct ubpf_vm* vm, const void* code, uint32_t code_len, char** errmsg)
 {
@@ -306,9 +307,7 @@ ubpf_mem_store(uint64_t address, uint64_t value, size_t size)
     }
 }
 
-#ifdef __EMSCRIPTEN__
-EMSCRIPTEN_KEEPALIVE
-#endif
+WASM_PUBLIC
 int
 ubpf_exec(const struct ubpf_vm* vm, void* mem, size_t mem_len, uint64_t* bpf_return_value)
 {
@@ -357,8 +356,7 @@ ubpf_exec(const struct ubpf_vm* vm, void* mem, size_t mem_len, uint64_t* bpf_ret
     reg = _reg;
 #endif
 
-#ifdef __EMSCRIPTEN__
-    ubpf_dispatcher(7);
+#ifdef PLATFORM_WASM
 #endif
 
     reg[1] = (uintptr_t)mem;
@@ -879,7 +877,13 @@ ubpf_exec(const struct ubpf_vm* vm, void* mem, size_t mem_len, uint64_t* bpf_ret
             // program was assembled with the same endianess as the host machine.
             if (inst.src == 0) {
                 // Handle call by address to external function.
+#ifdef PLATFORM_WASM
+                // The external function here is a universal dispatcher. We need to add a tag (inst.imm)
+                // so that dispatcher can disambiguate the target.
+                reg[0] = vm->ext_funcs[inst.imm](inst.imm, reg[1], reg[2], reg[3], reg[4], reg[5]);
+#else
                 reg[0] = vm->ext_funcs[inst.imm](reg[1], reg[2], reg[3], reg[4], reg[5]);
+#endif
                 // Unwind the stack if unwind extension returns success.
                 if (inst.imm == vm->unwind_stack_extension_index && reg[0] == 0) {
                     *bpf_return_value = reg[0];

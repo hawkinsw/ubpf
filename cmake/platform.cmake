@@ -16,6 +16,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(PLATFORM_LINUX true)
 
 elseif(DEFINED EMSCRIPTEN)
+  message(WARNING "FYI: WASM support is currently experimental.")
   set(PLATFORM_WASM true)
 
 endif()
