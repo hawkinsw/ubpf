@@ -12,7 +12,7 @@ export type UbpfPlatformSpecificHelperFunctionType = (
 ) => bigint;
 type RegisterFunctionType = (
   a: WebAssembly.Instance,
-  b: Vm,
+  b: Ubpf,
   c: number,
   d: UbpfPlatformSpecificHelperFunctionType,
 ) => void;
@@ -54,18 +54,101 @@ export async function load_runtime(
   }
 }
 
-/**
- * Create a UBPF runtime.
- *
- * @param wasm {WebAssembly.Instance} The instance of the wasm runtime
- * @returns {Vm} A VM instance that can be used for future ubpf calls.
- */
-export function create_runtime(wasm: WebAssembly.Instance): Vm {
-  const ubpf_create = wasm.exports.ubpf_create as () => Pointer;
-  const vm = ubpf_create();
-  const runtime = new Vm();
-  runtime.native_runtime = vm;
-  return runtime;
+export class Ubpf {
+  private _wasm: WebAssembly.Instance;
+  private _vm: Pointer;
+  constructor(wasm: WebAssembly.Instance) {
+    const ubpf_create = wasm.exports.ubpf_create as () => Pointer;
+    this._wasm = wasm;
+    const vm = ubpf_create();
+    this._vm = vm;
+  }
+
+  public LoadProgram(program: Uint8Array): [boolean, string] {
+    const error_str_ptr_ptr = malloc(this._wasm, 8);
+    const runtime_memory =
+      (this._wasm.exports.memory as WebAssembly.Memory).buffer;
+    const runtime_memory_view = new Uint8Array(runtime_memory);
+    const error_str_ptr_ptr_view = new DataView(
+      runtime_memory,
+      error_str_ptr_ptr,
+      8,
+    );
+
+    const ubpf_load = this._wasm.exports.ubpf_load as (
+      a: number,
+      b: number,
+      c: number,
+      d: number,
+    ) => number;
+
+    const result = ubpf_load(
+      this._vm,
+      program.byteOffset,
+      program.length,
+      error_str_ptr_ptr,
+    );
+    if (result != 0) {
+      const error_str_ptr = error_str_ptr_ptr_view.getBigUint64(0, true);
+      const error_str_len = strlen(runtime_memory_view, Number(error_str_ptr));
+      const error_str_ptr_view = new DataView(
+        runtime_memory,
+        Number(error_str_ptr),
+        error_str_len,
+      );
+      const td = new TextDecoder();
+      const error = td.decode(error_str_ptr_view);
+      return [false, error];
+    }
+    return [true, "no error"];
+  }
+  public Execute(
+    runtime_memory: ArrayBuffer,
+    program_memory_ptr: number,
+    program_memory_length: number,
+  ): bigint | Error {
+    const exec_result_loc = malloc(this._wasm, 8);
+    const exec_result = new DataView(runtime_memory, exec_result_loc, 8);
+
+    exec_result.setBigUint64(0, BigInt(0))
+
+    const ubpf_exec = this._wasm.exports.ubpf_exec as (
+      vm_ptr: number,
+      program_memory_ptr: number,
+      program_memory_length: number,
+      result_ptr: number,
+    ) => number;
+    const result = ubpf_exec(
+      this._vm,
+      program_memory_ptr,
+      program_memory_length,
+      exec_result.byteOffset,
+    );
+
+    if (result < 0) {
+      return Error(`${result}`);
+    }
+    return exec_result.getBigUint64(0, true);
+  }
+
+  public SetUnwindIndex(
+    unwind_index: number,
+  ): number | Error {
+    const unwind_function = this._wasm.exports
+      .ubpf_set_unwind_function_index as (
+        vm_ptr: number,
+        unwind_index: number,
+      ) => number;
+    const result = unwind_function(this._vm, unwind_index);
+    if (result == 0) {
+      return 0;
+    }
+    return new Error("Failed to register the unwind index");
+  }
+
+  public GetRuntime(): number {
+    return this._vm;
+  }
 }
 
 function strlen(memory: Uint8Array, start: number): number {
@@ -74,83 +157,6 @@ function strlen(memory: Uint8Array, start: number): number {
     result++;
   }
   return result;
-}
-
-/**
- * Load a BPF program into UBPF.
- *
- * @param wasm {WebAssembly.Instance} The instance of the wasm runtime
- * @param {number} program Pointer to wasm memory of ebpf program to load
- */
-export function load_ubpf(
-  wasm: WebAssembly.Instance,
-  vm: Vm,
-  program: Uint8Array,
-): [boolean, string] {
-  const error_str_ptr_ptr = malloc(wasm, 8);
-  const runtime_memory = (wasm.exports.memory as WebAssembly.Memory).buffer;
-  const runtime_memory_view = new Uint8Array(runtime_memory);
-  const error_str_ptr_ptr_view = new DataView(
-    runtime_memory,
-    error_str_ptr_ptr,
-    8,
-  );
-
-  const ubpf_load = wasm.exports.ubpf_load as (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-  ) => number;
-
-  const result = ubpf_load(
-    vm.native_runtime,
-    program.byteOffset,
-    program.length,
-    error_str_ptr_ptr,
-  );
-  if (result != 0) {
-    const error_str_ptr = error_str_ptr_ptr_view.getBigUint64(0, true);
-    const error_str_len = strlen(runtime_memory_view, Number(error_str_ptr));
-    const error_str_ptr_view = new DataView(
-      runtime_memory,
-      Number(error_str_ptr),
-      error_str_len,
-    );
-    const td = new TextDecoder();
-    const error = td.decode(error_str_ptr_view)
-    return [false, error];
-  }
-  return [true, "no error"];
-}
-
-export function exec_ubpf(
-  wasm: WebAssembly.Instance,
-  vm: Vm,
-  runtime_memory: ArrayBuffer,
-  program_memory_ptr: number,
-  program_memory_length: number,
-): bigint | Error {
-  const exec_result_loc = malloc(wasm, 8);
-  const exec_result = new DataView(runtime_memory, exec_result_loc, 8);
-
-  const ubpf_exec = wasm.exports.ubpf_exec as (
-    vm_ptr: number,
-    program_memory_ptr: number,
-    program_memory_length: number,
-    result_ptr: number,
-  ) => number;
-  const result = ubpf_exec(
-    vm.native_runtime,
-    program_memory_ptr,
-    program_memory_length,
-    exec_result.byteOffset,
-  );
-
-  if (result < 0) {
-    return Error(`${result}`);
-  }
-  return exec_result.getBigUint64(0, true);
 }
 
 export function malloc(wasm: WebAssembly.Instance, size: number): number {
@@ -167,15 +173,15 @@ export function generate_ubpf_dispatch_system(): [
 
   const register_function = function (
     wasm: WebAssembly.Instance,
-    vm: Vm,
+    ubpf: Ubpf,
     id: number,
     func: UbpfPlatformSpecificHelperFunctionType,
   ) {
     const ubpf_register_fn = wasm.exports.ubpf_register as (
-      vm_ptr: number,
+      vm: Pointer,
       idx: number,
     ) => number;
-    const _result = ubpf_register_fn(vm.native_runtime, id);
+    const _result = ubpf_register_fn(ubpf.GetRuntime(), id);
     if (_result != 0) {
       console.error("Error: Could not register function ");
       return;
@@ -202,20 +208,4 @@ export function generate_ubpf_dispatch_system(): [
   };
 
   return [register_function, dispatch_function];
-}
-
-export function set_unwind_index(
-  wasm: WebAssembly.Instance,
-  vm: Vm,
-  unwind_index: number,
-): number | Error {
-  const unwind_function = wasm.exports.ubpf_set_unwind_function_index as (
-    vm_ptr: number,
-    unwind_index: number,
-  ) => number;
-  const result = unwind_function(vm.native_runtime, unwind_index);
-  if (result == 0) {
-    return 0;
-  }
-  return new Error("Failed to register the unwind index");
 }
