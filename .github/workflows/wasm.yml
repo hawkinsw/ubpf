@@ -54,13 +54,13 @@ jobs:
         sudo apt-get install -y \
           ninja-build \
           cmake \
-          lcov \
           libboost-dev \
           libboost-program-options-dev \
           libboost-filesystem-dev \
-          deno \
           npm \
           libelf-dev
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
 
     - name: Build/install emsdk
       run: ./.github/scripts/build-wasm.sh
