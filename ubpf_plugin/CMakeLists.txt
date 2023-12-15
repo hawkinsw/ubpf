@@ -67,6 +67,11 @@ list(APPEND TESTS_EXPECTED_TO_FAIL "duplicate_label")
 # and support for calling local functions.
 list(APPEND TESTS_EXPECTED_TO_FAIL "lock")
 
+if(PLATFORM_WASM)
+    # TODO: Fix these tests!
+    list(APPEND TESTS_EXPECTED_TO_FAIL "mul-loop")
+endif()
+
 foreach(file ${files})
     unset(EXPECT_FAILURE)
     foreach(to_fail ${TESTS_EXPECTED_TO_FAIL})

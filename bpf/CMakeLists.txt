@@ -1,6 +1,11 @@
 # Copyright (c) Microsoft Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+if(PLATFORM_WASM)
+    message(WARNING "Skipping clang-based BPF tests in WASM mode.")
+    return()
+endif()
+
 function(clang_validator correct clang_path)
     execute_process(
         COMMAND echo "int main() { return 0;}"
