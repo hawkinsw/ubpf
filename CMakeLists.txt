@@ -27,6 +27,7 @@ add_subdirectory("vm")
 				BINARY_DIR ${CMAKE_BINARY_DIR}/external/bpf_conformance
         EXCLUDE_FROM_ALL true
         STEP_TARGETS build)
+
 if (PLATFORM_WASM)
 add_subdirectory("wasm")
 endif()

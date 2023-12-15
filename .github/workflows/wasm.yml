@@ -1,0 +1,91 @@
+# Copyright (c) 2022-present, IO Visor Project
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (c) 2022-present, IO Visor Project
+# SPDX-License-Identifier: Apache-2.0
+# All rights reserved.
+#
+# This source code is licensed in accordance with the terms specified in
+# the LICENSE file found in the root directory of this source tree.
+#
+
+name: wasm
+
+permissions:
+  contents: read
+  security-events: write # Required by codeql task
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        description: 'Architecture'
+        required: true
+        type: string
+
+      platform:
+        required: true
+        type: string
+
+      upload_packages:
+        required: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ${{ inputs.platform }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Initialize CodeQL
+      if: inputs.build_codeql == true
+      uses: github/codeql-action/init@c0d1daa7f7e14667747d73a7dbbe8c074bc8bfe2
+      with:
+        languages: 'cpp'
+
+    - name: Install system dependencies (Linux)
+      if: inputs.platform == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+
+        sudo apt-get install -y \
+          ninja-build \
+          cmake \
+          lcov \
+          libboost-dev \
+          libboost-program-options-dev \
+          libboost-filesystem-dev \
+          deno \
+          npm \
+          libelf-dev
+
+    - name: Build/install emsdk
+      run: ./.github/scripts/build-wasm.sh
+      shell: bash
+
+    - name: Configure uBPF
+      run: |
+        arch_flags="-DCMAKE_TOOLCHAIN_FILE=/usr/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+
+        ${command_prefix} cmake \
+          -G Ninja \
+          -S . \
+          -B build \
+          -DCMAKE_BUILD_TYPE=${{ inputs.build_type }} \
+          -DUBPF_ENABLE_TESTS=true \
+          ${arch_flags}
+
+    - name: Build uBPF
+      run: |
+        ${command_prefix} cmake \
+          --build build \
+          -- -v
+
+    - name: Run the CTest suite
+      run: |
+        ${command_prefix} cmake \
+          --build build \
+          --target test

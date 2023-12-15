@@ -61,6 +61,13 @@ jobs:
       upload_packages: true
       disable_retpolines: true
 
+  wasm:
+    uses: ./.github/workflows/wasm.yml
+    with:
+      arch: wasm
+      platform: ubuntu-latest
+      upload_packages: true
+
   macos_release:
     uses: ./.github/workflows/posix.yml
     with:
