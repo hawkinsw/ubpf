@@ -5,7 +5,7 @@ import {
   Ubpf,
 } from "./ubpf.ts";
 
-import Context from "https://deno.land/std/wasi/snapshot_preview1.ts";
+import Context from "https://deno.land/std@0.206.0/wasi/snapshot_preview1.ts";
 import { decodeHex } from "https://deno.land/std/encoding/hex.ts";
 
 function unwind(

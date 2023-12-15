@@ -11,7 +11,7 @@ fi
 user=`id -n -u`
 group=`id -n -g`
 
-sudo chown /usr/emsdk ${user}:${group}
+sudo chown ${user}:${group} /usr/emsdk
 
 cd /usr/
 if [ $? -ne 0 ]; then
@@ -45,5 +45,7 @@ if [ $? -ne 0 ]; then
 	echo "Could not activate the latest EMSDK."
 	exit 1
 fi
+
+curl -fsSL https://deno.land/x/install/install.sh | sh
 
 exit 0
