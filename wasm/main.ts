@@ -175,10 +175,14 @@ async function main() {
   if (debug) {
     console.log(`load_result: ${load_result}`);
   }
+
+  const program_memory_offset = program_memory.length ? program_memory.byteOffset : 0
+  const program_memory_length = program_memory.length ? program_memory.length : 0
+
   const exec_actual_result = ubpf.Execute(
     memory_buffer,
-    program_memory.byteOffset,
-    program_memory.length,
+    program_memory_offset,
+    program_memory_length,
   );
   if (exec_actual_result instanceof Error) {
     console.log(`ubpf_exec failed: ${exec_actual_result}`);
