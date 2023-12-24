@@ -1,9 +1,6 @@
-import {
-  generate_ubpf_dispatch_system,
-  load_runtime,
-  malloc,
-  Ubpf,
-} from "./ubpf.ts";
+import { generate_ubpf_dispatch_system, load_runtime, Ubpf } from "./ubpf.ts";
+
+import { malloc } from "./ubpf_utils.ts";
 
 import Context from "https://deno.land/std@0.206.0/wasi/snapshot_preview1.ts";
 import { decodeHex } from "https://deno.land/std/encoding/hex.ts";
@@ -118,7 +115,7 @@ async function main() {
   const [wasm, memory] = result;
   const memory_buffer = memory.buffer;
 
-  const ubpf = new Ubpf(wasm);
+  const ubpf = new Ubpf(wasm, memory);
 
   let initial_program_memory_d = new Uint8Array(0);
 
@@ -151,23 +148,33 @@ async function main() {
   ubpf_register(wasm, ubpf, 5, unwind);
 
   const program_bytes_loc = malloc(wasm, program_bytes_d.length);
-  const program_bytes = new Uint8Array(
+  const program_bytes_data = new Uint8Array(
     memory_buffer,
     program_bytes_loc,
     program_bytes_d.length,
   );
+  const program_bytes_view = new DataView(
+    memory_buffer,
+    program_bytes_loc,
+    program_bytes_d.length,
+  );
+  program_bytes_data.set(program_bytes_d);
 
   const program_memory_loc = malloc(wasm, initial_program_memory_d.length);
-  const program_memory = new Uint8Array(
+  const program_memory_data = new Uint8Array(
+    memory_buffer,
+    program_memory_loc,
+    initial_program_memory_d.length,
+  );
+  const program_memory_view = new DataView(
     memory_buffer,
     program_memory_loc,
     initial_program_memory_d.length,
   );
 
-  program_memory.set(initial_program_memory_d);
-  program_bytes.set(program_bytes_d);
+  program_memory_data.set(initial_program_memory_d);
 
-  const [load_result, load_error] = ubpf.LoadProgram(program_bytes);
+  const [load_result, load_error] = ubpf.LoadProgram(program_bytes_view);
   if (!load_result) {
     console.log(`Failed to load code: ${load_error}`);
     Deno.exit(1);
@@ -176,13 +183,8 @@ async function main() {
     console.log(`load_result: ${load_result}`);
   }
 
-  const program_memory_offset = program_memory.length ? program_memory.byteOffset : 0
-  const program_memory_length = program_memory.length ? program_memory.length : 0
-
-  const exec_actual_result = ubpf.Execute(
-    memory_buffer,
-    program_memory_offset,
-    program_memory_length,
+  const exec_actual_result = ubpf.Jit(
+    program_memory_view,
   );
   if (exec_actual_result instanceof Error) {
     console.log(`ubpf_exec failed: ${exec_actual_result}`);

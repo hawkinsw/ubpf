@@ -235,6 +235,7 @@ extern "C"
      * @retval 0 Success.
      * @retval -1 Failure.
      */
+    EMSCRIPTEN_KEEPALIVE
     int
     ubpf_exec(const struct ubpf_vm* vm, void* mem, size_t mem_len, uint64_t* bpf_return_value);
 

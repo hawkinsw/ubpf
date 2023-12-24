@@ -98,6 +98,8 @@ ubpf_create(void)
     vm->translate = ubpf_translate_x86_64;
 #elif defined(__aarch64__) || defined(_M_ARM64)
     vm->translate = ubpf_translate_arm64;
+#elif defined(PLATFORM_WASM)
+    vm->translate = ubpf_translate_wasm;
 #else
     vm->translate = ubpf_translate_null;
 #endif

@@ -1,3 +1,5 @@
+import { malloc, string_from_ptr } from "./ubpf_utils.ts";
+
 export class Vm {
   native_runtime: Pointer = NullPointer;
 }
@@ -57,18 +59,23 @@ export async function load_runtime(
 export class Ubpf {
   private _wasm: WebAssembly.Instance;
   private _vm: Pointer;
-  constructor(wasm: WebAssembly.Instance) {
+  private _memory: WebAssembly.Memory;
+  private _memory_view: DataView;
+
+  constructor(wasm: WebAssembly.Instance, memory: WebAssembly.Memory) {
     const ubpf_create = wasm.exports.ubpf_create as () => Pointer;
     this._wasm = wasm;
     const vm = ubpf_create();
     this._vm = vm;
+    this._memory = memory;
+    this._memory_view = new DataView(memory.buffer);
   }
 
-  public LoadProgram(program: Uint8Array): [boolean, string] {
+  public LoadProgram(program: DataView): [boolean, string] {
     const error_str_ptr_ptr = malloc(this._wasm, 8);
     const runtime_memory =
       (this._wasm.exports.memory as WebAssembly.Memory).buffer;
-    const runtime_memory_view = new Uint8Array(runtime_memory);
+    const runtime_memory_view = new DataView(runtime_memory);
     const error_str_ptr_ptr_view = new DataView(
       runtime_memory,
       error_str_ptr_ptr,
@@ -85,32 +92,84 @@ export class Ubpf {
     const result = ubpf_load(
       this._vm,
       program.byteOffset,
-      program.length,
+      program.byteLength,
       error_str_ptr_ptr,
     );
     if (result != 0) {
       const error_str_ptr = error_str_ptr_ptr_view.getBigUint64(0, true);
-      const error_str_len = strlen(runtime_memory_view, Number(error_str_ptr));
-      const error_str_ptr_view = new DataView(
-        runtime_memory,
-        Number(error_str_ptr),
-        error_str_len,
-      );
-      const td = new TextDecoder();
-      const error = td.decode(error_str_ptr_view);
-      return [false, error];
+      return [
+        false,
+        string_from_ptr(runtime_memory_view, Number(error_str_ptr)),
+      ];
     }
     return [true, "no error"];
   }
+
+  /**
+   * Jit and execute the loaded program
+   *
+   * @param program_memory A DataView relative to the VM's runtime memory where the program to execute
+   * is loaded.
+   * @returns bigint | Error The 64-bit number in register 0 at the end of the BPF program's execution
+   * if the program executed successfully; an instance of Error (with a description of the failure) in
+   * cases when the BPF program's execution did not succeed.
+   */
+  public Jit(
+    program_memory: DataView,
+  ): bigint | Error {
+    const compiler_error_ptr_loc = malloc(this._wasm, 8);
+
+    this._memory_view.setBigUint64(compiler_error_ptr_loc, BigInt(0));
+
+    const ubpf_compile = this._wasm.exports.ubpf_compile as (
+      vm_ptr: number,
+      program_memory_ptr: number,
+    ) => number;
+
+    const fn = ubpf_compile(
+      this._vm,
+      compiler_error_ptr_loc,
+    );
+
+    const compiler_error_ptr = this._memory_view.getBigUint64(
+      compiler_error_ptr_loc,
+      true,
+    );
+
+    if (compiler_error_ptr != BigInt(0)) {
+      return Error(
+        `Error in JIT compilation: ${
+          string_from_ptr(this._memory_view, Number(compiler_error_ptr))
+        }`,
+      );
+    }
+
+    const jitted_module = new WebAssembly.Module(
+      new Uint8Array(this._memory.buffer, fn, 39),
+    );
+    const jitted_instantiation = new WebAssembly.Instance(jitted_module);
+    const jitted_function = jitted_instantiation.exports["add"] as () => number;
+
+    console.log(`fn: --------${jitted_function()}----`);
+
+    return BigInt(jitted_function());
+  }
+
+  /**
+   * Interpret the loaded program
+   *
+   * @param program_memory A DataView relative to the VM's runtime memory where the program to execute
+   * is loaded.
+   * @returns bigint | Error The 64-bit number in register 0 at the end of the BPF program's execution
+   * if the program executed successfully; an instance of Error (with a description of the failure) in
+   * cases when the BPF program's execution did not succeed.
+   */
   public Execute(
-    runtime_memory: ArrayBuffer,
-    program_memory_ptr: number,
-    program_memory_length: number,
+    program_memory: DataView,
   ): bigint | Error {
     const exec_result_loc = malloc(this._wasm, 8);
-    const exec_result = new DataView(runtime_memory, exec_result_loc, 8);
 
-    exec_result.setBigUint64(0, BigInt(0))
+    this._memory_view.setBigUint64(exec_result_loc, BigInt(0));
 
     const ubpf_exec = this._wasm.exports.ubpf_exec as (
       vm_ptr: number,
@@ -118,17 +177,25 @@ export class Ubpf {
       program_memory_length: number,
       result_ptr: number,
     ) => number;
+
+    const program_memory_offset = program_memory.byteLength != 0
+      ? program_memory.byteOffset
+      : 0;
+    const program_memory_length = program_memory.byteLength != 0
+      ? program_memory.byteLength
+      : 0;
+
     const result = ubpf_exec(
       this._vm,
-      program_memory_ptr,
+      program_memory_offset,
       program_memory_length,
-      exec_result.byteOffset,
+      exec_result_loc,
     );
 
     if (result < 0) {
       return Error(`${result}`);
     }
-    return exec_result.getBigUint64(0, true);
+    return this._memory_view.getBigUint64(exec_result_loc, true);
   }
 
   public SetUnwindIndex(
@@ -149,19 +216,6 @@ export class Ubpf {
   public GetRuntime(): number {
     return this._vm;
   }
-}
-
-function strlen(memory: Uint8Array, start: number): number {
-  let result = 0;
-  while (memory.at(start + result) != 0) {
-    result++;
-  }
-  return result;
-}
-
-export function malloc(wasm: WebAssembly.Instance, size: number): number {
-  const malloc_fn = wasm.exports.malloc as (a: number) => number;
-  return malloc_fn(size);
 }
 
 export function generate_ubpf_dispatch_system(): [

@@ -40,6 +40,7 @@ add_library("ubpf"
   ebpf.h
   ubpf_int.h
   ubpf_jit_arm64.c
+  ubpf_jit_wasm.c
   ubpf_jit.c
   ubpf_jit_x86_64.c
   ubpf_jit_x86_64.h

@@ -50,6 +50,7 @@ ubpf_translate_null(struct ubpf_vm* vm, uint8_t* buffer, size_t* size, char** er
     return -1;
 }
 
+WASM_PUBLIC
 ubpf_jit_fn
 ubpf_compile(struct ubpf_vm* vm, char** errmsg)
 {
@@ -100,5 +101,6 @@ out:
     if (jitted && vm->jitted == NULL) {
         munmap(jitted, jitted_size);
     }
+
     return vm->jitted;
 }

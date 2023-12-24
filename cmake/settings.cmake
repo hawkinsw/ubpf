@@ -12,6 +12,11 @@ add_library("ubpf_settings" INTERFACE)
 # If we are being used as a submodule, give a chance to the parent
 # project to use the settings they want.
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  if (PLATFORM_WASM)
+    execute_process(COMMAND /home/hawkinsw/code/emsdk/upstream/emscripten/em++ --cflags OUTPUT_VARIABLE EM_OMNIBUS_CFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
+    separate_arguments(EM_CFLAGS UNIX_COMMAND ${EM_OMNIBUS_CFLAGS})
+    target_compile_options("ubpf_settings" INTERFACE ${EM_CFLAGS})
+  endif()
   if(PLATFORM_LINUX OR PLATFORM_MACOS)
     target_compile_options("ubpf_settings" INTERFACE
       -Wall
