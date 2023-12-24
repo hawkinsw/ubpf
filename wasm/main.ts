@@ -183,7 +183,7 @@ async function main() {
     console.log(`load_result: ${load_result}`);
   }
 
-  const exec_actual_result = ubpf.Jit(
+  const exec_actual_result = ubpf.Execute(
     program_memory_view,
   );
   if (exec_actual_result instanceof Error) {
