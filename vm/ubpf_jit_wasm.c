@@ -32,6 +32,8 @@
 #include <assert.h>
 #include "ubpf_int.h"
 
+
+#if 0
 #if !defined(_countof)
 #define _countof(array) (sizeof(array) / sizeof(array[0]))
 #endif
@@ -1172,10 +1174,13 @@ resolve_jumps(struct jit_state* state)
         update_branch_immediate(state, jump.offset_loc, rel);
     }
 }
-
+#endif
 int
 ubpf_translate_wasm(struct ubpf_vm* vm, uint8_t* buffer, size_t* size, char** errmsg)
 {
+    (void)vm;
+    (void)errmsg;
+
     buffer[0] = 0x00;
     buffer[1] = 0x61;
     buffer[2] = 0x73;
