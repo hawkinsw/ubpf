@@ -1,6 +1,5 @@
-import { generate_ubpf_dispatch_system, load_runtime, Ubpf } from "./ubpf.ts";
-
-import { malloc } from "./ubpf_utils.ts";
+import { generate_ubpf_dispatch_system, load_runtime, Ubpf} from "./ubpf.ts";
+import { set_dataview_bytes } from "./ubpf_utils.ts";
 
 import Context from "https://deno.land/std@0.206.0/wasi/snapshot_preview1.ts";
 import { decodeHex } from "https://deno.land/std/encoding/hex.ts";
@@ -112,10 +111,9 @@ async function main() {
     console.error(`There was an error loading the ubpf runtime: ${result}`);
     return;
   }
-  const [wasm, memory] = result;
-  const memory_buffer = memory.buffer;
+  const wasm_runtime = result;
 
-  const ubpf = new Ubpf(wasm, memory);
+  const ubpf = new Ubpf(wasm_runtime)
 
   let initial_program_memory_d = new Uint8Array(0);
 
@@ -139,40 +137,19 @@ async function main() {
   );
 
   ubpf.SetUnwindIndex(5);
-  const memfrob = generate_memfrob(memory_buffer);
-  const strcmp = generate_strcmp(memory_buffer);
-  ubpf_register(wasm, ubpf, 0, gather_bytes);
-  ubpf_register(wasm, ubpf, 1, memfrob);
-  ubpf_register(wasm, ubpf, 2, no_op);
-  ubpf_register(wasm, ubpf, 4, strcmp);
-  ubpf_register(wasm, ubpf, 5, unwind);
+  const memfrob = generate_memfrob(wasm_runtime.memory.buffer);
+  const strcmp = generate_strcmp(wasm_runtime.memory.buffer);
+  ubpf_register(wasm_runtime, ubpf, 0, gather_bytes);
+  ubpf_register(wasm_runtime, ubpf, 1, memfrob);
+  ubpf_register(wasm_runtime, ubpf, 2, no_op);
+  ubpf_register(wasm_runtime, ubpf, 4, strcmp);
+  ubpf_register(wasm_runtime, ubpf, 5, unwind);
 
-  const program_bytes_loc = malloc(wasm, program_bytes_d.length);
-  const program_bytes_data = new Uint8Array(
-    memory_buffer,
-    program_bytes_loc,
-    program_bytes_d.length,
-  );
-  const program_bytes_view = new DataView(
-    memory_buffer,
-    program_bytes_loc,
-    program_bytes_d.length,
-  );
-  program_bytes_data.set(program_bytes_d);
+  const program_bytes_view = wasm_runtime.malloc(program_bytes_d.length);
+  set_dataview_bytes(program_bytes_view, program_bytes_d)
 
-  const program_memory_loc = malloc(wasm, initial_program_memory_d.length);
-  const program_memory_data = new Uint8Array(
-    memory_buffer,
-    program_memory_loc,
-    initial_program_memory_d.length,
-  );
-  const program_memory_view = new DataView(
-    memory_buffer,
-    program_memory_loc,
-    initial_program_memory_d.length,
-  );
-
-  program_memory_data.set(initial_program_memory_d);
+  const program_memory_view = wasm_runtime.malloc(initial_program_memory_d.length);
+  set_dataview_bytes(program_memory_view, initial_program_memory_d)
 
   const [load_result, load_error] = ubpf.LoadProgram(program_bytes_view);
   if (!load_result) {
