@@ -36,8 +36,8 @@
 #endif
 
 #define MAX_EXT_FUNCS 64
-#define SHIFT_MASK_32_BIT(X) ((X)&0x1f)
-#define SHIFT_MASK_64_BIT(X) ((X)&0x3f)
+#define SHIFT_MASK_32_BIT(X) ((X) & 0x1f)
+#define SHIFT_MASK_64_BIT(X) ((X) & 0x3f)
 
 static bool
 validate(const struct ubpf_vm* vm, const struct ebpf_inst* insts, uint32_t num_insts, char** errmsg);
@@ -68,7 +68,6 @@ ubpf_set_error_print(struct ubpf_vm* vm, int (*error_printf)(FILE* stream, const
     else
         vm->error_printf = fprintf;
 }
-
 
 WASM_PUBLIC
 struct ubpf_vm*
@@ -119,9 +118,13 @@ ubpf_destroy(struct ubpf_vm* vm)
 
 #ifdef PLATFORM_WASM
 WASM_PUBLIC
-EM_JS(uint64_t, ubpf_dispatcher, (int, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t), {
-    // Intentionally blank -- body given in JavaScript.
-});
+EM_JS(
+    uint64_t,
+    ubpf_dispatcher,
+    (int, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t),
+    {
+        // Intentionally blank -- body given in JavaScript.
+    });
 
 WASM_PUBLIC
 int
@@ -1292,3 +1295,12 @@ ubpf_register_data_bounds_check(struct ubpf_vm* vm, void* user_context, ubpf_bou
     vm->bounds_check_user_data = user_context;
     return 0;
 }
+
+#ifdef PLATFORM_WASM
+WASM_PUBLIC
+size_t
+ubpf_vm_get_jitted_size(struct ubpf_vm* vm)
+{
+    return vm->jitted_size;
+}
+#endif

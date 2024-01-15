@@ -1,4 +1,4 @@
-import { generate_ubpf_dispatch_system, load_runtime, Ubpf} from "./ubpf.ts";
+import { generate_ubpf_dispatch_system, load_runtime, Ubpf } from "./ubpf.ts";
 import { set_dataview_bytes } from "./ubpf_utils.ts";
 
 import Context from "https://deno.land/std@0.206.0/wasi/snapshot_preview1.ts";
@@ -96,6 +96,7 @@ async function main() {
   });
 
   // Leave for a later upgrade
+  const jit = false;
   const debug = false;
   const [ubpf_register, ubpf_dispatcher] = generate_ubpf_dispatch_system();
 
@@ -113,7 +114,7 @@ async function main() {
   }
   const wasm_runtime = result;
 
-  const ubpf = new Ubpf(wasm_runtime)
+  const ubpf = new Ubpf(wasm_runtime);
 
   let initial_program_memory_d = new Uint8Array(0);
 
@@ -146,10 +147,12 @@ async function main() {
   ubpf_register(wasm_runtime, ubpf, 5, unwind);
 
   const program_bytes_view = wasm_runtime.malloc(program_bytes_d.length);
-  set_dataview_bytes(program_bytes_view, program_bytes_d)
+  set_dataview_bytes(program_bytes_view, program_bytes_d);
 
-  const program_memory_view = wasm_runtime.malloc(initial_program_memory_d.length);
-  set_dataview_bytes(program_memory_view, initial_program_memory_d)
+  const program_memory_view = wasm_runtime.malloc(
+    initial_program_memory_d.length,
+  );
+  set_dataview_bytes(program_memory_view, initial_program_memory_d);
 
   const [load_result, load_error] = ubpf.LoadProgram(program_bytes_view);
   if (!load_result) {
@@ -160,13 +163,20 @@ async function main() {
     console.log(`load_result: ${load_result}`);
   }
 
-  const exec_actual_result = ubpf.Execute(
-    program_memory_view,
-  );
-  if (exec_actual_result instanceof Error) {
-    console.log(`ubpf_exec failed: ${exec_actual_result}`);
+  if (jit) {
+    const jit_actual_result = ubpf.JitAndExecute(
+      program_memory_view,
+    );
+    console.log(`jit_actual_result: ${jit_actual_result}`);
   } else {
-    console.log(`${exec_actual_result.toString(16)}`);
+    const exec_actual_result = ubpf.Execute(
+      program_memory_view,
+    );
+    if (exec_actual_result instanceof Error) {
+      console.log(`ubpf_exec failed: ${exec_actual_result}`);
+    } else {
+      console.log(`${exec_actual_result.toString(16)}`);
+    }
   }
   Deno.exit(0);
 }

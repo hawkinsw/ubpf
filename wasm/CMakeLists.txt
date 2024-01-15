@@ -20,7 +20,15 @@ target_link_libraries(
     ubpf
     ubpf_settings
 )
-target_link_options("ubpf_lib" PRIVATE "SHELL:-s STANDALONE_WASM=1"  "SHELL:-s EXPORTED_FUNCTIONS='[_malloc]'" "SHELL:-s RESERVED_FUNCTION_POINTERS=1" -Wl,--no-entry)
+
+set(wasm_exported_functions "_malloc")
+list(APPEND wasm_exported_functions "_ubpf_register")
+list(APPEND wasm_exported_functions "_ubpf_load")
+list(APPEND wasm_exported_functions "_ubpf_vm_get_jitted_size")
+list(JOIN wasm_exported_functions "," wasm_exported_functions_command)
+set(wasm_exported_functions_command "EXPORTED_FUNCTIONS='[${wasm_exported_functions_command}]'")
+
+target_link_options("ubpf_lib" PRIVATE "SHELL:-s STANDALONE_WASM=1"  "SHELL:-s ${wasm_exported_functions_command}" "SHELL:-s RESERVED_FUNCTION_POINTERS=1" -Wl,--no-entry)
 
 set(ts_source_files "main.ts" "ubpf.ts" "ubpf_utils.ts" "ubpf_types.ts")
 set(ts_outputs)

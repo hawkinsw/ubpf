@@ -25,25 +25,51 @@ export class WasmRuntime {
 }
 
 /**
+ * Vm handles all interaction with the Vm doing the executing/jitting.
+ */
+export class Vm {
+  private _vm: Pointer;
+  private _wasm: WasmRuntime;
+
+  constructor(vm: Pointer, wasm: WasmRuntime) {
+    this._vm = vm;
+    this._wasm = wasm;
+  }
+
+  public GetPointer(): Pointer {
+    return this._vm;
+  }
+
+  public GetJittedSize(): number {
+    const read_vm_jitted_size = this._wasm.instance.exports
+      .ubpf_vm_get_jitted_size as (
+        vm_ptr: number,
+      ) => number;
+    return read_vm_jitted_size(this._vm);
+  }
+}
+
+/**
  * Ubpf is the workhorse -- used for executing eBPF programs.
  */
 export class Ubpf {
   private _wasm: WasmRuntime;
-  private _vm: Pointer;
+  private _vm: Vm;
   private _memory_view: DataView;
 
   constructor(wasm: WasmRuntime) {
     const ubpf_create = wasm.instance.exports.ubpf_create as () => Pointer;
     this._wasm = wasm;
     const vm = ubpf_create();
-    this._vm = vm;
+    this._vm = new Vm(vm, wasm);
     this._memory_view = new DataView(this._wasm.memory.buffer);
   }
 
   public LoadProgram(program: DataView): [boolean, string] {
     const error_str_ptr_ptr = this._wasm.malloc(8);
-    const runtime_memory =
-      (this._wasm.instance.exports.memory as WebAssembly.Memory).buffer;
+    const runtime_memory = (
+      this._wasm.instance.exports.memory as WebAssembly.Memory
+    ).buffer;
     const runtime_memory_view = new DataView(runtime_memory);
 
     const ubpf_load = this._wasm.instance.exports.ubpf_load as (
@@ -54,7 +80,7 @@ export class Ubpf {
     ) => number;
 
     const result = ubpf_load(
-      this._vm,
+      this._vm.GetPointer(),
       ptr_from_dataview(program),
       program.byteLength,
       ptr_from_dataview(error_str_ptr_ptr),
@@ -78,40 +104,47 @@ export class Ubpf {
    * if the program executed successfully; an instance of Error (with a description of the failure) in
    * cases when the BPF program's execution did not succeed.
    */
-  public Jit(
-    program_memory: DataView,
-  ): bigint | Error {
+  public JitAndExecute(program_memory: DataView): bigint | Error {
     const compiler_error_ptr_view = this._wasm.malloc(8);
 
     //this._memory_view.setBigUint64(compiler_error_ptr_data, BigInt(0));
     compiler_error_ptr_view.setBigUint64(0, BigInt(0));
 
+    let jitted_function: () => number;
     const ubpf_compile = this._wasm.instance.exports.ubpf_compile as (
       vm_ptr: number,
       program_memory_ptr: number,
     ) => number;
 
     const fn = ubpf_compile(
-      this._vm,
+      this._vm.GetPointer(),
       ptr_from_dataview(compiler_error_ptr_view),
     );
 
-    const compiler_error_ptr = compiler_error_ptr_view.getBigUint64(0, true);
-
+    const compiler_error_ptr = compiler_error_ptr_view.getBigUint64(
+      0,
+      true,
+    );
     if (compiler_error_ptr != BigInt(0)) {
       return Error(
         `Error in JIT compilation: ${
-          string_from_ptr(this._memory_view, Number(compiler_error_ptr))
+          string_from_ptr(
+            this._memory_view,
+            Number(compiler_error_ptr),
+          )
         }`,
       );
     }
-
+    const jitted_size = this._vm.GetJittedSize();
     const jitted_module = new WebAssembly.Module(
-      new Uint8Array(this._wasm.memory.buffer, fn, 39),
+      new Uint8Array(this._wasm.memory.buffer, fn, jitted_size),
     );
-    const jitted_instantiation = new WebAssembly.Instance(jitted_module);
-    const jitted_function = jitted_instantiation.exports["add"] as () => number;
-
+    const jitted_instantiation = new WebAssembly.Instance(
+      jitted_module,
+    );
+    jitted_function = jitted_instantiation.exports[
+      "ebpf"
+    ] as () => number;
     console.log(`fn: --------${jitted_function()}----`);
 
     return BigInt(jitted_function());
@@ -126,9 +159,7 @@ export class Ubpf {
    * if the program executed successfully; an instance of Error (with a description of the failure) in
    * cases when the BPF program's execution did not succeed.
    */
-  public Execute(
-    program_memory: DataView,
-  ): bigint | Error {
+  public Execute(program_memory: DataView): bigint | Error {
     const exec_result_data_view = this._wasm.malloc(8);
 
     exec_result_data_view.setBigUint64(0, BigInt(0));
@@ -148,7 +179,7 @@ export class Ubpf {
       : 0;
 
     const result = ubpf_exec(
-      this._vm,
+      this._vm.GetPointer(),
       program_memory_ptr,
       program_memory_length,
       ptr_from_dataview(exec_result_data_view),
@@ -160,23 +191,21 @@ export class Ubpf {
     return exec_result_data_view.getBigUint64(0, true);
   }
 
-  public SetUnwindIndex(
-    unwind_index: number,
-  ): number | Error {
+  public SetUnwindIndex(unwind_index: number): number | Error {
     const unwind_function = this._wasm.instance.exports
       .ubpf_set_unwind_function_index as (
         vm_ptr: number,
         unwind_index: number,
       ) => number;
-    const result = unwind_function(this._vm, unwind_index);
+    const result = unwind_function(this._vm.GetPointer(), unwind_index);
     if (result == 0) {
       return 0;
     }
     return new Error("Failed to register the unwind index");
   }
 
-  public GetRuntime(): number {
-    return this._vm;
+  public getVmPointer(): Pointer {
+    return this._vm.GetPointer();
   }
 }
 
@@ -197,7 +226,7 @@ export function generate_ubpf_dispatch_system(): [
       vm: Pointer,
       idx: number,
     ) => number;
-    const _result = ubpf_register_fn(ubpf.GetRuntime(), id);
+    const _result = ubpf_register_fn(ubpf.getVmPointer(), id);
     if (_result != 0) {
       console.error("Error: Could not register function ");
       return;
@@ -235,20 +264,18 @@ export async function load_runtime(
   importObject: WebAssembly.Imports,
 ): Promise<WasmRuntime | Error> {
   try {
-    const wasmSourceFile = await Deno.open("./bin/ubpf_lib.wasm");
-    const wasmSource = await Deno.readAll(wasmSourceFile);
-    return WebAssembly.instantiate(wasmSource, importObject)
-      .then(
-        (result) => {
-          return new WasmRuntime(
-            result.instance,
-            result.instance.exports.memory as WebAssembly.Memory,
-          );
-        },
-        (reason) => {
-          return new Error(reason);
-        },
-      );
+    const wasmSource = await Deno.readFileSync("./bin/ubpf_lib.wasm");
+    return WebAssembly.instantiate(wasmSource, importObject).then(
+      (result) => {
+        return new WasmRuntime(
+          result.instance,
+          result.instance.exports.memory as WebAssembly.Memory,
+        );
+      },
+      (reason) => {
+        return new Error(reason);
+      },
+    );
   } catch (_error) {
     return new Error("Could not find the wasm binary.");
   }

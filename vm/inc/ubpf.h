@@ -116,21 +116,21 @@ extern "C"
     int
     ubpf_register(struct ubpf_vm* vm, unsigned int index);
 #else
-    /**
-     * @brief Register an external function.
-     * The immediate field of a CALL instruction is an index into an array of
-     * functions registered by the user. This API associates a function with
-     * an index.
-     *
-     * @param[in] vm The VM to register the function on.
-     * @param[in] index The index to register the function at.
-     * @param[in] name The human readable name of the function.
-     * @param[in] fn The function to register.
-     * @retval 0 Success.
-     * @retval -1 Failure.
-     */
-    int
-    ubpf_register(struct ubpf_vm* vm, unsigned int index, const char* name, void* fn);
+/**
+ * @brief Register an external function.
+ * The immediate field of a CALL instruction is an index into an array of
+ * functions registered by the user. This API associates a function with
+ * an index.
+ *
+ * @param[in] vm The VM to register the function on.
+ * @param[in] index The index to register the function at.
+ * @param[in] name The human readable name of the function.
+ * @param[in] fn The function to register.
+ * @retval 0 Success.
+ * @retval -1 Failure.
+ */
+int
+ubpf_register(struct ubpf_vm* vm, unsigned int index, const char* name, void* fn);
 #endif
 
     /**
@@ -362,6 +362,19 @@ extern "C"
      */
     int
     ubpf_register_data_bounds_check(struct ubpf_vm* vm, void* user_context, ubpf_bounds_check bounds_check);
+
+#ifdef PLATFORM_WASM
+    /**
+     * @brief Get the size of the jitted code in the Vm.
+     *
+     * @pre This function will return an invalid value if called before code is compiled.
+     *
+     * @param[in] vm The VM for which to get the size of the jitted code.
+     * @return size_t The size of the jitted code.
+     */
+    size_t
+    ubpf_vm_get_jitted_size(struct ubpf_vm* vm);
+#endif
 
 #ifdef __cplusplus
 }

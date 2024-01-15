@@ -32,7 +32,6 @@
 #include <assert.h>
 #include "ubpf_int.h"
 
-
 #if 0
 #if !defined(_countof)
 #define _countof(array) (sizeof(array) / sizeof(array[0]))
@@ -1175,52 +1174,60 @@ resolve_jumps(struct jit_state* state)
     }
 }
 #endif
+
 int
 ubpf_translate_wasm(struct ubpf_vm* vm, uint8_t* buffer, size_t* size, char** errmsg)
 {
     (void)vm;
     (void)errmsg;
 
-    buffer[0] = 0x00;
+    buffer[0] = 0x0;
     buffer[1] = 0x61;
     buffer[2] = 0x73;
     buffer[3] = 0x6d;
-    buffer[4] = 0x01;
-    buffer[5] = 0x00;
-    buffer[6] = 0x00;
-    buffer[7] = 0x00;
-    buffer[8] = 0x01;
-    buffer[9] = 0x05;
-    buffer[10] = 0x01;
+    buffer[4] = 0x1;
+    buffer[5] = 0x0;
+    buffer[6] = 0x0;
+    buffer[7] = 0x0;
+    buffer[8] = 0x1;
+    buffer[9] = 0x5;
+    buffer[10] = 0x1;
     buffer[11] = 0x60;
-    buffer[12] = 0x00;
-    buffer[13] = 0x01;
-    buffer[14] = 0x7f;
-    buffer[15] = 0x03;
-    buffer[16] = 0x02;
-    buffer[17] = 0x01;
-    buffer[18] = 0x00;
-    buffer[19] = 0x07;
-    buffer[20] = 0x07;
-    buffer[21] = 0x01;
-    buffer[22] = 0x03;
-    buffer[23] = 0x61;
-    buffer[24] = 0x64;
-    buffer[25] = 0x64;
-    buffer[26] = 0x00;
-    buffer[27] = 0x00;
-    buffer[28] = 0x0a;
-    buffer[29] = 0x09;
-    buffer[30] = 0x01;
-    buffer[31] = 0x07;
-    buffer[32] = 0x00;
-    buffer[33] = 0x41;
-    buffer[34] = 0x02;
-    buffer[35] = 0x41;
-    buffer[36] = 0x07;
-    buffer[37] = 0x6a;
-    buffer[38] = 0x0b;
-    *size = 39;
+    buffer[12] = 0x0;
+    buffer[13] = 0x1;
+    buffer[14] = 0x7e;
+    buffer[15] = 0x3;
+    buffer[16] = 0x2;
+    buffer[17] = 0x1;
+    buffer[18] = 0x0;
+    buffer[19] = 0x7;
+    buffer[20] = 0x8;
+    buffer[21] = 0x1;
+    buffer[22] = 0x4;
+    buffer[23] = 0x65;
+    buffer[24] = 0x62;
+    buffer[25] = 0x70;
+    buffer[26] = 0x66;
+    buffer[27] = 0x0;
+    buffer[28] = 0x0;
+    buffer[29] = 0xa;
+    buffer[30] = 0x9;
+    buffer[31] = 0x1;
+    buffer[32] = 0x7;
+    buffer[33] = 0x0;
+    buffer[34] = 0x42; // |              <- Function code begins here.
+    buffer[35] = 0x2;  // | i64.const 2
+
+    buffer[36] = 0x42; // |
+    buffer[37] = 0x9;  // | i64.const 9
+
+    buffer[38] = 0x7c; // | i64.add
+
+    buffer[39] = 0xb; // | return
+
+    *size = 40;
+
+    *errmsg = NULL; // ubpf_error("There was a terrible, terrible error.");
 
 #if 0
     struct jit_state state;
