@@ -887,6 +887,9 @@ ubpf_exec(const struct ubpf_vm* vm, void* mem, size_t mem_len, uint64_t* bpf_ret
             *bpf_return_value = reg[0];
             return_value = 0;
             goto cleanup;
+        case EBPF_OP_CALLX:
+            reg[0] = ubpf_dispatch_to_external_helper(reg[1], reg[2], reg[3], reg[4], reg[5], vm, inst.imm);
+            break;
         case EBPF_OP_CALL:
             // Differentiate between local and external calls -- assume that the
             // program was assembled with the same endianess as the host machine.
@@ -1097,7 +1100,13 @@ validate(const struct ubpf_vm* vm, const struct ebpf_inst* insts, uint32_t num_i
                 return false;
             }
             break;
-
+        case EBPF_OP_CALLX:
+            // All we can validate is that the immediate value is a valid register.
+            if (inst.imm < 0 || inst.imm > _BPF_REG_MAX) {
+                *errmsg = ubpf_error("invalid register in callx at PC %d", i);
+                return false;
+            }
+            break;
         case EBPF_OP_CALL:
             if (inst.src == 0) {
                 if (inst.imm < 0 || inst.imm >= MAX_EXT_FUNCS) {

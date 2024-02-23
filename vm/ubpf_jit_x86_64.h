@@ -376,7 +376,8 @@ emit_jmp(struct jit_state* state, uint32_t target_pc)
 }
 
 static inline void
-emit_dispatched_external_helper_call(struct jit_state* state, const struct ubpf_vm* vm, unsigned int idx)
+emit_dispatched_external_helper_call(
+    struct jit_state* state, const struct ubpf_vm* vm, bool dst_is_index, unsigned int dst)
 {
     /*
      * When we enter here, our stack is 16-byte aligned. Keep
@@ -407,7 +408,11 @@ emit_dispatched_external_helper_call(struct jit_state* state, const struct ubpf_
     emit_push(state, R9);
 
     // Before it's a parameter, use it for a push.
-    emit_load_imm(state, R9, idx);
+    if (dst_is_index) {
+        emit_load_imm(state, R9, dst);
+    } else {
+        emit_mov(state, dst, R9);
+    }
     emit_push(state, R9);
 
     emit_load_imm(state, R9, (uint64_t)vm);

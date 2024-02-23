@@ -151,6 +151,12 @@ map_register(int r)
     return register_map[r % REGISTER_MAP_SIZE];
 }
 
+union index_or_register
+{
+    unsigned int index;
+    enum Registers reg;
+};
+
 /* Some forward declarations.  */
 static void
 emit_movewide_immediate(struct jit_state* state, bool sixty_four, enum Registers rd, uint64_t imm);
@@ -580,7 +586,8 @@ emit_jit_prologue(struct jit_state* state, size_t ubpf_stack_size)
 }
 
 static void
-emit_dispatched_external_helper_call(struct jit_state* state, struct ubpf_vm* vm, unsigned int idx)
+emit_dispatched_external_helper_call(
+    struct jit_state* state, struct ubpf_vm* vm, bool dst_is_index, union index_or_register dst)
 {
     uint32_t stack_movement = align_to(8, 16);
     emit_addsub_immediate(state, true, AS_SUB, SP, SP, stack_movement);
@@ -591,7 +598,12 @@ emit_dispatched_external_helper_call(struct jit_state* state, struct ubpf_vm* vm
 
     // ... set up the final two parameters.
     emit_movewide_immediate(state, true, R5, (uint64_t)vm);
-    emit_movewide_immediate(state, true, R6, idx);
+
+    if (dst_is_index) {
+        emit_movewide_immediate(state, true, R6, dst.index);
+    } else {
+        emit_logical_register(state, true, LOG_ORR, R6, RZ, dst.reg);
+    }
 
     // Call!
     emit_movewide_immediate(state, true, temp_register, (uint64_t)ubpf_dispatch_to_external_helper);
@@ -1067,9 +1079,16 @@ translate(struct ubpf_vm* vm, struct jit_state* state, char** errmsg)
             emit_logical_register(state, sixty_four, LOG_ANDS, RZ, dst, src);
             emit_conditionalbranch_immediate(state, to_condition(opcode), target_pc);
             break;
+        case EBPF_OP_CALLX:
         case EBPF_OP_CALL:
             if (inst.src == 0) {
-                emit_dispatched_external_helper_call(state, vm, inst.imm);
+                union index_or_register call_dst;
+                if (inst.opcode == EBPF_OP_CALL) {
+                    call_dst.index = inst.imm;
+                } else {
+                    call_dst.reg = inst.dst;
+                }
+                emit_dispatched_external_helper_call(state, vm, inst.opcode == EBPF_OP_CALL, call_dst);
                 if (inst.imm == vm->unwind_stack_extension_index) {
                     emit_addsub_immediate(state, true, AS_SUBS, RZ, map_register(0), 0);
                     emit_conditionalbranch_immediate(state, COND_EQ, TARGET_PC_EXIT);
