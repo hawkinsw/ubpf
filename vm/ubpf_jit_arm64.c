@@ -1086,7 +1086,7 @@ translate(struct ubpf_vm* vm, struct jit_state* state, char** errmsg)
                 if (inst.opcode == EBPF_OP_CALL) {
                     call_dst.index = inst.imm;
                 } else {
-                    call_dst.reg = inst.dst;
+                    call_dst.reg = map_register(inst.dst);
                 }
                 emit_dispatched_external_helper_call(state, vm, inst.opcode == EBPF_OP_CALL, call_dst);
                 if (inst.imm == vm->unwind_stack_extension_index) {

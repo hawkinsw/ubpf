@@ -31,8 +31,8 @@
 #include <unistd.h>
 
 #define MAX_EXT_FUNCS 64
-#define SHIFT_MASK_32_BIT(X) ((X) & 0x1f)
-#define SHIFT_MASK_64_BIT(X) ((X) & 0x3f)
+#define SHIFT_MASK_32_BIT(X) ((X)&0x1f)
+#define SHIFT_MASK_64_BIT(X) ((X)&0x3f)
 
 static bool
 validate(const struct ubpf_vm* vm, const struct ebpf_inst* insts, uint32_t num_insts, char** errmsg);
@@ -888,7 +888,7 @@ ubpf_exec(const struct ubpf_vm* vm, void* mem, size_t mem_len, uint64_t* bpf_ret
             return_value = 0;
             goto cleanup;
         case EBPF_OP_CALLX:
-            reg[0] = ubpf_dispatch_to_external_helper(reg[1], reg[2], reg[3], reg[4], reg[5], vm, inst.imm);
+            reg[0] = ubpf_dispatch_to_external_helper(reg[1], reg[2], reg[3], reg[4], reg[5], vm, reg[inst.dst]);
             break;
         case EBPF_OP_CALL:
             // Differentiate between local and external calls -- assume that the
