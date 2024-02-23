@@ -66,13 +66,13 @@ jobs:
       run: |
         cd .\build\bin\${{ inputs.build_type }}
         $BPF_CONFORMANCE_RUNNER = "..\..\external\bpf_conformance\bin\${{ inputs.build_type }}\bpf_conformance_runner.exe"
-        & $BPF_CONFORMANCE_RUNNER --test_file_directory ..\tests --plugin_path ubpf_plugin.exe --plugin_options --jit
+        & $BPF_CONFORMANCE_RUNNER --test_file_directory ..\tests --plugin_path ubpf_plugin.exe --include_groups "callx" --plugin_options --jit
         if ($LastExitCode -ne 0) { throw "Test failed"; }
-        & $BPF_CONFORMANCE_RUNNER --test_file_directory ..\tests --plugin_path ubpf_plugin.exe --plugin_options --interpret
+        & $BPF_CONFORMANCE_RUNNER --test_file_directory ..\tests --plugin_path ubpf_plugin.exe --include_groups "callx" --plugin_options --interpret
         if ($LastExitCode -ne 0) { throw "Test failed"; }
-        & $BPF_CONFORMANCE_RUNNER --exclude_regex lock_ --test_file_directory ..\..\external\bpf_conformance\tests --plugin_path ubpf_plugin.exe --plugin_options --jit
+        & $BPF_CONFORMANCE_RUNNER --exclude_regex lock_ --test_file_directory ..\..\external\bpf_conformance\tests --include_groups "callx" --plugin_path ubpf_plugin.exe --plugin_options --jit
         if ($LastExitCode -ne 0) { throw "Test failed"; }
-        & $BPF_CONFORMANCE_RUNNER --exclude_regex lock_ --test_file_directory ..\..\external\bpf_conformance\tests --plugin_path ubpf_plugin.exe --plugin_options --interpret
+        & $BPF_CONFORMANCE_RUNNER --exclude_regex lock_ --test_file_directory ..\..\external\bpf_conformance\tests --include_groups "callx" --plugin_path ubpf_plugin.exe --plugin_options --interpret
         if ($LastExitCode -ne 0) { throw "Test failed"; }
 
     - name: Generate the TGZ package

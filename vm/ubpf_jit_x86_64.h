@@ -395,6 +395,7 @@ emit_dispatched_external_helper_call(
     } else {
         emit_mov(state, dst, RAX);
     }
+    emit_push(state, RAX);
 
     emit_load_imm(state, RAX, (uint64_t)vm);
     emit_push(state, RAX);
