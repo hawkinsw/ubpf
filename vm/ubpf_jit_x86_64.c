@@ -611,7 +611,7 @@ translate(struct ubpf_vm* vm, struct jit_state* state, char** errmsg)
                     state,
                     vm,
                     (inst.opcode == EBPF_OP_CALL),
-                    (inst.opcode == EBPF_OP_CALL ? inst.imm : map_register(inst.imm)));
+                    (inst.opcode == EBPF_OP_CALL ? inst.imm : map_register(inst.dst)));
                 if (inst.imm == vm->unwind_stack_extension_index) {
                     emit_cmp_imm32(state, map_register(BPF_REG_0), 0);
                     emit_jcc(state, 0x84, TARGET_PC_EXIT);
