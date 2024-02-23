@@ -390,8 +390,11 @@ emit_dispatched_external_helper_call(
      */
     emit_alu64_imm32(state, 0x81, 5, RSP, sizeof(uint64_t));
 
-    emit_load_imm(state, RAX, idx);
-    emit_push(state, RAX);
+    if (dst_is_index) {
+        emit_load_imm(state, RAX, dst);
+    } else {
+        emit_mov(state, dst, RAX);
+    }
 
     emit_load_imm(state, RAX, (uint64_t)vm);
     emit_push(state, RAX);
